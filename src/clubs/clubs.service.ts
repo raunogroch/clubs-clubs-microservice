@@ -1,29 +1,24 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { PrismaClient } from '../generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { envs, NATS_SERVICE } from '../config';
+import { NATS_SERVICE } from '../config';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { PaginationDto } from '../common';
 import { firstValueFrom } from 'rxjs';
 import { CreateClubDto, UpdateClubDto } from './dto';
+import { ClubsRepository } from './clubs.repository';
 
 @Injectable()
-export class ClubsService extends PrismaClient {
+export class ClubsService {
   constructor(
+    private readonly clubsRepository: ClubsRepository,
     @Inject(NATS_SERVICE) private readonly assignmentClient: ClientProxy,
-  ) {
-    const adapter = new PrismaPg(envs.databaseUrl);
-    super({ adapter });
-  }
+  ) {}
 
   async create(createClubDto: CreateClubDto) {
     try {
-      const clubExist = await this.club.findFirst({
-        where: {
-          name: createClubDto.name,
-          assignmentId: createClubDto.assignmentId,
-        },
-      });
+      const clubExist = await this.clubsRepository.findByNameAndAssignment(
+        createClubDto.name,
+        createClubDto.assignmentId,
+      );
 
       if (clubExist) {
         throw new RpcException('Club already exists');
@@ -37,22 +32,19 @@ export class ClubsService extends PrismaClient {
         throw new RpcException('Assignment is not valid');
       }
 
-      const newClub = await this.club.create({
-        data: {
-          name: createClubDto.name,
-          sport: createClubDto.sport,
-          assignmentId: assignmentIsValid,
-          phone: createClubDto.phone,
-          image: createClubDto.image,
-          address: createClubDto.address,
-          city: createClubDto.city,
-          country: createClubDto.country,
-          status: createClubDto.status,
-          available: createClubDto.available,
-        },
+      const newClub = await this.clubsRepository.create({
+        name: createClubDto.name,
+        sport: createClubDto.sport,
+        assignmentId: assignmentIsValid,
+        phone: createClubDto.phone,
+        image: createClubDto.image,
+        address: createClubDto.address,
+        city: createClubDto.city,
+        country: createClubDto.country,
+        status: createClubDto.status,
+        available: createClubDto.available,
       });
 
-      // Register club creation in assignment microservice
       try {
         await firstValueFrom(
           this.assignmentClient.send('assignment.addClubs', {
@@ -76,30 +68,12 @@ export class ClubsService extends PrismaClient {
   async findAll(paginationDto: PaginationDto) {
     try {
       const { page = 1, limit = 10 } = paginationDto;
-      const totalPage = await this.club.count({
-        where: { available: true },
-      });
+      const totalPage = await this.clubsRepository.countAvailable();
 
       const lastPage = Math.ceil(totalPage / limit);
 
       return {
-        data: await this.club.findMany({
-          skip: (page - 1) * limit,
-          take: limit,
-          where: { available: true },
-          select: {
-            id: true,
-            name: true,
-            sport: true,
-            assignmentId: true,
-            image: true,
-            address: true,
-            city: true,
-            country: true,
-            status: true,
-            available: true,
-          },
-        }),
+        data: await this.clubsRepository.findAll(page, limit),
         meta: {
           total: totalPage,
           page: page,
@@ -113,21 +87,7 @@ export class ClubsService extends PrismaClient {
 
   async findOne(id: string) {
     try {
-      const clubExist = await this.club.findFirst({
-        where: { id },
-        select: {
-          id: true,
-          name: true,
-          sport: true,
-          assignmentId: true,
-          image: true,
-          address: true,
-          city: true,
-          country: true,
-          status: true,
-          available: true,
-        },
-      });
+      const clubExist = await this.clubsRepository.findOne(id);
       if (!clubExist) throw new RpcException('Club no exist');
 
       return clubExist;
@@ -138,9 +98,7 @@ export class ClubsService extends PrismaClient {
 
   async update(clubId: string, updateClubDto: UpdateClubDto) {
     try {
-      const clubExist = await this.club.findFirst({
-        where: { id: clubId },
-      });
+      const clubExist = await this.clubsRepository.findById(clubId);
 
       if (!clubExist) {
         throw new RpcException('Club no exist');
@@ -159,10 +117,7 @@ export class ClubsService extends PrismaClient {
         data.assignmentId = assignmentIsValid;
       }
 
-      return this.club.update({
-        where: { id },
-        data,
-      });
+      return this.clubsRepository.update(id, data);
     } catch (err: any) {
       throw new RpcException(err);
     }
@@ -170,20 +125,13 @@ export class ClubsService extends PrismaClient {
 
   async remove(id: string) {
     try {
-      const clubExist = await this.club.findFirst({
-        where: {
-          id,
-        },
-      });
+      const clubExist = await this.clubsRepository.findById(id);
 
       if (!clubExist) {
         throw new RpcException('Club no exist');
       }
 
-      await this.club.update({
-        where: { id },
-        data: { available: false },
-      });
+      await this.clubsRepository.softDelete(id);
 
       return { message: 'Club was removed successfully' };
     } catch (err: any) {
