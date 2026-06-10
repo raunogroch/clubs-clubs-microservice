@@ -1,25 +1,29 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
 import { envs } from './config';
-import { RpcCustomExceptionsFilter } from './common';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 
 async function bootstrap() {
-  const logger = new Logger('Microservice');
-  const app = await NestFactory.create(AppModule);
-
-  app.setGlobalPrefix('api');
+   const logger = new Logger('Microservice');
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+    AppModule,
+    {
+      transport: Transport.NATS,
+      options: {
+        servers: envs.natsServers,
+      },
+    },
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
-  app.useGlobalFilters(new RpcCustomExceptionsFilter());
-
-  await app.listen(envs.port);
-
+  await app.listen();
   logger.log(`Clubs is running on: ${envs.port}`);
 }
 bootstrap();

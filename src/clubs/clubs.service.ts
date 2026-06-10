@@ -37,7 +37,7 @@ export class ClubsService extends PrismaClient {
         throw new RpcException('Assignment is not valid');
       }
 
-      return await this.club.create({
+      const newClub = await this.club.create({
         data: {
           name: createClubDto.name,
           sport: createClubDto.sport,
@@ -51,6 +51,23 @@ export class ClubsService extends PrismaClient {
           available: createClubDto.available,
         },
       });
+
+      // Register club creation in assignment microservice
+      try {
+        await firstValueFrom(
+          this.assignmentClient.send('assignment.addClubs', {
+            id: assignmentIsValid,
+            clubs: [newClub.id],
+          }),
+        );
+      } catch (err) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Club created but failed to register in assignment microservice',
+        });
+      }
+
+      return newClub;
     } catch (err: any) {
       throw new RpcException(err);
     }
