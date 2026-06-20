@@ -18,6 +18,7 @@ export class ClubsService {
       const clubExist = await this.clubsRepository.findByNameAndAssignment(
         createClubDto.name,
         createClubDto.assignmentId,
+        createClubDto.sport,
       );
 
       if (clubExist) {
@@ -55,7 +56,8 @@ export class ClubsService {
       } catch (err) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
-          message: 'Club created but failed to register in assignment microservice',
+          message:
+            'Club created but failed to register in assignment microservice',
         });
       }
 

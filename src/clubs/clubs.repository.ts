@@ -1,16 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma, SportType } from '../generated/prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class ClubsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findByNameAndAssignment(name: string, assignmentId: string) {
+  findByNameAndAssignment(
+    name: string,
+    assignmentId: string,
+    sport: SportType,
+  ) {
     return this.prisma.club.findFirst({
       where: {
         name,
         assignmentId,
+        sport,
       },
     });
   }
