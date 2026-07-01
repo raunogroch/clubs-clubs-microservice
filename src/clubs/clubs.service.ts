@@ -1,16 +1,15 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { NATS_SERVICE } from '../config';
-import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { RpcException } from '@nestjs/microservices';
 import { PaginationDto } from '../common';
-import { firstValueFrom } from 'rxjs';
 import { CreateClubDto, UpdateClubDto } from './dto';
 import { ClubsRepository } from './clubs.repository';
+import { NatsClientService } from '../transports/nats-client.service';
 
 @Injectable()
 export class ClubsService {
   constructor(
     private readonly clubsRepository: ClubsRepository,
-    @Inject(NATS_SERVICE) private readonly assignmentClient: ClientProxy,
+    private readonly natsClientService: NatsClientService,
   ) {}
 
   async create(createClubDto: CreateClubDto) {
@@ -47,12 +46,10 @@ export class ClubsService {
       });
 
       try {
-        await firstValueFrom(
-          this.assignmentClient.send('assignment.addClubs', {
-            id: assignmentIsValid,
-            clubs: [newClub.id],
-          }),
-        );
+        await this.natsClientService.send('assignment.addClubs', {
+          id: assignmentIsValid,
+          clubs: [newClub.id],
+        });
       } catch (err) {
         throw new RpcException({
           status: HttpStatus.BAD_REQUEST,
@@ -141,15 +138,17 @@ export class ClubsService {
     }
   }
 
-  private async validateAssignment(assignmentId: string) {
-    const assignmentIsValid = await firstValueFrom(
-      this.assignmentClient.send('assignment.validate', assignmentId),
-    ).catch((err) => {
+  private async validateAssignment(assignmentId: string): Promise<string> {
+    try {
+      return await this.natsClientService.send<string, string>(
+        'assignment.validate',
+        assignmentId,
+      );
+    } catch (err: any) {
       throw new RpcException({
         status: HttpStatus.BAD_REQUEST,
         message: err.message,
       });
-    });
-    return assignmentIsValid;
+    }
   }
 }
