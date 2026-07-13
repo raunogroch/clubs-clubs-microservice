@@ -42,7 +42,6 @@ export class ClubsService {
         city: createClubDto.city,
         country: createClubDto.country,
         status: createClubDto.status,
-        available: createClubDto.available,
       });
 
       try {

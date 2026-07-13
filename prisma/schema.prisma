@@ -35,25 +35,30 @@ enum ClubStatus {
 
 model Club {
   id              String          @id @default(uuid())
-  name            String         
+  name            String
   image           String?
   sport           SportType
   phone           String
   address         String
   city            String
   country         String
-  assignmentId    String         
+  assignmentId    String
   status          ClubStatus      @default(ACTIVE)
   events          ClubEvent[]
   levels          SportLevel[]
+  createdBy       String?
+  updatedBy       String?
+  deletedBy       String?
+  deletedAt       DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
-  available       Boolean         @default(true)      
+
   @@unique([assignmentId, name, sport])
   @@index([sport])
   @@index([assignmentId])
   @@index([status])
-  @@index([available])
+  @@index([assignmentId, status])
+  @@index([deletedAt])
   @@map("clubs")
 }
 

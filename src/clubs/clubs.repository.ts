@@ -28,7 +28,7 @@ export class ClubsRepository {
 
   countAvailable() {
     return this.prisma.club.count({
-      where: { available: true },
+      where: { deletedAt: null },
     });
   }
 
@@ -36,7 +36,7 @@ export class ClubsRepository {
     return this.prisma.club.findMany({
       skip: (page - 1) * limit,
       take: limit,
-      where: { available: true },
+      where: { deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -48,14 +48,13 @@ export class ClubsRepository {
         city: true,
         country: true,
         status: true,
-        available: true,
       },
     });
   }
 
   findOne(id: string) {
     return this.prisma.club.findFirst({
-      where: { id },
+      where: { id, deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -67,14 +66,13 @@ export class ClubsRepository {
         city: true,
         country: true,
         status: true,
-        available: true,
       },
     });
   }
 
   findById(id: string) {
     return this.prisma.club.findFirst({
-      where: { id },
+      where: { id, deletedAt: null },
     });
   }
 
@@ -88,7 +86,7 @@ export class ClubsRepository {
   softDelete(id: string) {
     return this.prisma.club.update({
       where: { id },
-      data: { available: false },
+      data: { deletedAt: new Date() },
     });
   }
 }
